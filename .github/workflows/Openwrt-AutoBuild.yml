@@ -27,7 +27,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     
-    name: Build ${{matrix.target}}
+    name: Build ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
@@ -35,21 +35,16 @@ jobs:
         
     steps:
     - name: Checkout
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
       with:
-          fetch-depth: 0
-
-    # - name: Set up secret file
-      # run: |
-        # echo ${{ secrets.TELEGRAM_CHAT_ID }} | sed 's/./& /g'
-        # echo ${{ secrets.TELEGRAM_TOKEN }} | sed 's/./& /g'
+        fetch-depth: 0
 
     - name: Load Settings.ini
       run: |
-        echo ${{matrix.target}}
+        echo "${{ matrix.target }}"
         source "${GITHUB_WORKSPACE}/devices/common/settings.ini"
-        if [ -f "devices/${{matrix.target}}/settings.ini" ]; then
-          source "${GITHUB_WORKSPACE}/devices/${{matrix.target}}/settings.ini"
+        if [ -f "devices/${{ matrix.target }}/settings.ini" ]; then
+          source "${GITHUB_WORKSPACE}/devices/${{ matrix.target }}/settings.ini"
         fi
         echo "REPO_URL=${REPO_URL}" >> $GITHUB_ENV
         echo "REPO_BRANCH=${REPO_BRANCH}" >> $GITHUB_ENV
@@ -61,37 +56,40 @@ jobs:
         echo "UPLOAD_FIRMWARE_FOR_RELEASE=${UPLOAD_FIRMWARE_FOR_RELEASE}" >> $GITHUB_ENV
         echo "UPLOAD_FIRMWARE_TO_COWTRANSFER=${UPLOAD_FIRMWARE_TO_COWTRANSFER}" >> $GITHUB_ENV
         echo "UPLOAD_FIRMWARE_TO_WETRANSFER=${UPLOAD_FIRMWARE_TO_WETRANSFER}" >> $GITHUB_ENV
-        sed -i "1a REPO_TOKEN=${{ secrets.TOKEN_KIDDIN9 }}" ${GITHUB_WORKSPACE}/devices/common/diy.sh
-        sed -i "1a TARGET=${{matrix.target}}" ${GITHUB_WORKSPACE}/devices/common/diy.sh
-        if [ ${{matrix.target}} == "x86_64" ]; then
+        
+        sed -i "1a REPO_TOKEN=${{ secrets.TOKEN_KIDDIN9 }}" "${GITHUB_WORKSPACE}/devices/common/diy.sh"
+        sed -i "1a TARGET=${{ matrix.target }}" "${GITHUB_WORKSPACE}/devices/common/diy.sh"
+        
+        # 修复条件判断语法
+        if [ "${{ matrix.target }}" = "x86_64" ]; then
             echo "ARCH=linux/amd64" >> $GITHUB_ENV
             echo "MTARGET=x86_64" >> $GITHUB_ENV
-        elif [ ${{matrix.target}} == "x86_generic" ]; then
+        elif [ "${{ matrix.target }}" = "x86_generic" ]; then
             echo "ARCH=linux/amd32" >> $GITHUB_ENV
             echo "MTARGET=x86_generic" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} =~ (armsr_armv8|qualcommax_ipq807x|mediatek_mt7622|mediatek_mt7981|mediatek_filogic|bcm27xx_bcm2710|qualcommax_ipq60xx|bcm4908_generic|sunxi_cortexa53) ]]; then
+        elif echo "${{ matrix.target }}" | grep -qE "(armsr_armv8|qualcommax_ipq807x|mediatek_mt7622|mediatek_mt7981|mediatek_filogic|bcm27xx_bcm2710|qualcommax_ipq60xx|bcm4908_generic|sunxi_cortexa53)"; then
             echo "MTARGET=aarch64_cortex-a53" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} =~ (ramips_mt7621|ramips_mt7620|ramips_mt76x8) ]]; then
+        elif echo "${{ matrix.target }}" | grep -qE "(ramips_mt7621|ramips_mt7620|ramips_mt76x8)"; then
             echo "MTARGET=mipsel_24kc" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} == "ath79_nand" ]]; then
+        elif [ "${{ matrix.target }}" = "ath79_nand" ]; then
             echo "MTARGET=mips_24kc" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} =~ (ipq40xx_generic|bcm27xx_bcm2709|sunxi_cortexa7|qualcommax_ipq50xx) ]]; then
+        elif echo "${{ matrix.target }}" | grep -qE "(ipq40xx_generic|bcm27xx_bcm2709|sunxi_cortexa7|qualcommax_ipq50xx)"; then
             echo "MTARGET=arm_cortex-a7_neon-vfpv4" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} == "amlogic_meson8b" ]]; then
+        elif [ "${{ matrix.target }}" = "amlogic_meson8b" ]; then
             echo "MTARGET=arm_cortex-a5_vfpv4" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} == "bcm53xx" ]]; then
+        elif [ "${{ matrix.target }}" = "bcm53xx" ]; then
             echo "MTARGET=arm_cortex-a9" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} == "mvebu_cortexa9" ]]; then
+        elif [ "${{ matrix.target }}" = "mvebu_cortexa9" ]; then
             echo "MTARGET=arm_cortex-a9_vfpv3-d16" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} == "ipq806x_generic" ]]; then
+        elif [ "${{ matrix.target }}" = "ipq806x_generic" ]; then
             echo "MTARGET=arm_cortex-a15_neon-vfpv4" >> $GITHUB_ENV
-        elif [[ ${{matrix.target}} == "bcm27xx_bcm2708" ]]; then
+        elif [ "${{ matrix.target }}" = "bcm27xx_bcm2708" ]; then
             echo "MTARGET=arm_arm1176jzf-s_vfp" >> $GITHUB_ENV
         else
           echo "ARCH=linux/arm64" >> $GITHUB_ENV
-          if [[ ${{matrix.target}} == "bcm27xx_bcm2711" ]]; then
+          if [ "${{ matrix.target }}" = "bcm27xx_bcm2711" ]; then
             echo "MTARGET=aarch64_cortex-a72" >> $GITHUB_ENV
-          elif [[ ${{matrix.target}} == rockchip* ]]; then
+          elif echo "${{ matrix.target }}" | grep -q "^rockchip"; then
             echo "MTARGET=aarch64_generic" >> $GITHUB_ENV
           fi
         fi
@@ -101,7 +99,7 @@ jobs:
       if: contains(github.event.action, 'pkg')
       run: |
         status=$(curl -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" -s "https://api.github.com/repos/kiddin9/kwrt-packages/actions/runs" | jq -r '.workflow_runs[0].status')
-        if [[ "$status" == "completed" ]]; then
+        if [ "$status" = "completed" ]; then
           curl -X POST https://api.github.com/repos/kiddin9/kwrt-packages/dispatches \
             -H "Accept: application/vnd.github.everest-preview+json" \
             -H "Authorization: token ${{ secrets.TOKEN_KIDDIN9 }}" \
@@ -140,17 +138,18 @@ jobs:
       run: |
         echo "date=$(date +'%m/%d_%Y_%H/%M')" >> $GITHUB_ENV
         echo "date2=$(date +'%m/%d %Y')" >> $GITHUB_ENV
-        VERSION="$(echo "${{github.event.action}}" | grep -Eo " [0-9.]+" | sed -e 's/ //')" || true
-        [ "$VERSION" ] && echo "VERSION=$VERSION" >> $GITHUB_ENV || echo "VERSION=$(date +'%m.%d')" >> $GITHUB_ENV
+        VERSION="$(echo "${{ github.event.action }}" | grep -Eo " [0-9.]+" | sed -e 's/ //')" || true
+        if [ -n "$VERSION" ]; then
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+        else
+          echo "VERSION=$(date +'%m.%d')" >> $GITHUB_ENV
+        fi
 
     - name: Clone source code (fixed commit)
       run: |
-        # 克隆 openwrt 官方源码
         git clone https://github.com/openwrt/openwrt.git openwrt
         cd openwrt
-        # 固定到 2025-05-13 的 commit（保证和你固件一致）
         git checkout 3b309e41cf
-
 
     - name: Free up disk space
       env:
@@ -166,97 +165,111 @@ jobs:
         function git_clone_path() {
           trap 'rm -rf "$tmpdir"' EXIT
           branch="$1" rurl="$2" mv="$3"
-          [[ "$mv" != "mv" ]] && shift 2 || shift 3
+          [ "$mv" != "mv" ] || shift 3
+          [ "$mv" = "mv" ] && shift 2
           rootdir="$PWD"
           tmpdir="$(mktemp -d)" || exit 1
           if [ ${#branch} -lt 10 ]; then
-          git clone -b "$branch" --depth 1 --filter=blob:none --sparse "$rurl" "$tmpdir"
-          cd "$tmpdir"
+            git clone -b "$branch" --depth 1 --filter=blob:none --sparse "$rurl" "$tmpdir"
+            cd "$tmpdir"
           else
-          git clone --filter=blob:none --sparse "$rurl" "$tmpdir"
-          cd "$tmpdir"
-          git checkout $branch
+            git clone --filter=blob:none --sparse "$rurl" "$tmpdir"
+            cd "$tmpdir"
+            git checkout "$branch"
           fi
-          if [ "$?" != 0 ]; then
+          if [ $? -ne 0 ]; then
             echo "error on $rurl"
             exit 1
           fi
           git sparse-checkout init --cone
-          git sparse-checkout set $@
-          [[ "$mv" != "mv" ]] && cp -rn ./* $rootdir/ || mv -n $@/* $rootdir/$@/
-          cd $rootdir
-          }
+          git sparse-checkout set "$@"
+          if [ "$mv" != "mv" ]; then
+            cp -rn ./* "$rootdir/" || true
+          else
+            mv -n "$@"/* "$rootdir/$@/" || true
+          fi
+          cd "$rootdir"
+        }
         export -f git_clone_path
+        
         cp -rf devices/common/. openwrt/
-        cp -rf devices/${{matrix.target}}/. openwrt/
+        cp -rf "devices/${{ matrix.target }}/." openwrt/
         cp -rf devices openwrt/
         cd openwrt
-        chmod +x devices/common/$DIY_SH
+        chmod +x "devices/common/$DIY_SH"
         /bin/bash "devices/common/$DIY_SH"
-        cp -f devices/common/$CONFIG_FILE .config
-        if [ -f "devices/${{matrix.target}}/$CONFIG_FILE" ]; then
+        cp -f "devices/common/$CONFIG_FILE" .config
+        if [ -f "devices/${{ matrix.target }}/$CONFIG_FILE" ]; then
           echo >> .config
-          cat devices/${{matrix.target}}/$CONFIG_FILE >> .config
+          cat "devices/${{ matrix.target }}/$CONFIG_FILE" >> .config
         fi
-        if [ -f "devices/${{matrix.target}}/$DIY_SH" ]; then
-          chmod +x devices/${{matrix.target}}/$DIY_SH
-          echo "/bin/bash devices/${{matrix.target}}/$DIY_SH"
-          /bin/bash "devices/${{matrix.target}}/$DIY_SH"
+        if [ -f "devices/${{ matrix.target }}/$DIY_SH" ]; then
+          chmod +x "devices/${{ matrix.target }}/$DIY_SH"
+          echo "/bin/bash devices/${{ matrix.target }}/$DIY_SH"
+          /bin/bash "devices/${{ matrix.target }}/$DIY_SH"
         fi
-        cp -Rf ./diy/* ./ || true
+        cp -Rf ./diy/* ./ 2>/dev/null || true
 
     - name: Apply patches
       run: |
         cd openwrt
-        cp -rn devices/common/patches devices/${{matrix.target}}/
-          if [ -n "$(ls -A devices/${{matrix.target}}/*.bin.patch 2>/dev/null)" ]; then
-            git apply devices/${{matrix.target}}/patches/*.bin.patch
-          fi
-          find "devices/${{matrix.target}}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -R -B --merge -p1 --forward"
-          find "devices/${{matrix.target}}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 | sort -z | xargs -I % -t -0 -n 1 sh -c "cat '%'  | patch -d './' -B --merge -p1 --forward"
-        sed -i '$a  \
-        CONFIG_CPU_FREQ_GOV_POWERSAVE=y \
-        CONFIG_CPU_FREQ_GOV_USERSPACE=y \
-        CONFIG_CPU_FREQ_GOV_ONDEMAND=y \
-        CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y \
-        CONFIG_CRYPTO_CHACHA20_NEON=y \
-        CONFIG_CRYPTO_CHACHA20POLY1305=y \
-        CONFIG_FAT_DEFAULT_IOCHARSET="utf8" \
-        ' `find target/linux -path "target/linux/*/config-*"`
+        cp -rn "devices/common/patches" "devices/${{ matrix.target }}/" 2>/dev/null || true
+        
+        if [ -n "$(ls -A "devices/${{ matrix.target }}"/patches/*.bin.patch 2>/dev/null)" ]; then
+          git apply "devices/${{ matrix.target }}"/patches/*.bin.patch
+        fi
+        
+        if [ -d "devices/${{ matrix.target }}/patches" ]; then
+          find "devices/${{ matrix.target }}/patches" -maxdepth 1 -type f -name '*.revert.patch' -print0 | sort -z | xargs -0 -I % sh -c "cat '%' | patch -d './' -R -B --merge -p1 --forward" || true
+          find "devices/${{ matrix.target }}/patches" -maxdepth 1 -type f -name '*.patch' ! -name '*.revert.patch' ! -name '*.bin.patch' -print0 | sort -z | xargs -0 -I % sh -c "cat '%' | patch -d './' -B --merge -p1 --forward" || true
+        fi
+        
+        echo 'CONFIG_CPU_FREQ_GOV_POWERSAVE=y' >> .config
+        echo 'CONFIG_CPU_FREQ_GOV_USERSPACE=y' >> .config
+        echo 'CONFIG_CPU_FREQ_GOV_ONDEMAND=y' >> .config
+        echo 'CONFIG_CPU_FREQ_GOV_CONSERVATIVE=y' >> .config
+        echo 'CONFIG_CRYPTO_CHACHA20_NEON=y' >> .config
+        echo 'CONFIG_CRYPTO_CHACHA20POLY1305=y' >> .config
+        echo 'CONFIG_FAT_DEFAULT_IOCHARSET="utf8"' >> .config
 
     - name: Defconfig
       run: |
         cd openwrt
         make defconfig
-        if [[ ! "${{matrix.target}}" =~ (amlogic_*|armsr_armv8|bcm27xx_*|rockchip_armv8|sunxi_*|x86_*) ]]; then
-        sed -n '/# Wireless Drivers/,/# end of Wireless Drivers/p' .config | sed -e 's/=m/=n/' >>.config
-        #sed -i "s/\(kmod-qca.*\)=m/\1=n/" .config
-        if [[ "${{matrix.target}}" == "rockchip_rk35xx" ]]; then 
+        
+        if ! echo "${{ matrix.target }}" | grep -qE "(amlogic_|armsr_armv8|bcm27xx_|rockchip_armv8|sunxi_|x86_)"; then
+          sed -n '/# Wireless Drivers/,/# end of Wireless Drivers/p' .config | sed -e 's/=m/=n/' >>.config
+          if [ "${{ matrix.target }}" = "rockchip_rk35xx" ]; then 
             sed -n '/# Video Support/,/# end of Video Support/p' .config | sed -e 's/=m/=n/' >>.config
-        fi
-        make defconfig
+          fi
+          make defconfig
         fi
         cat .config
 
     - name: Cache
-      uses: stupidloud/cachewrtbuild@main
+      uses: actions/cache@v4
       with:
-        ccache: 'true'
-        mixkey: ${{ matrix.target }}
-        clean: ${{ contains(github.event.action, 'nocache') }}
-        prefix: ${{ github.workspace }}/openwrt
-    
+        path: |
+          openwrt/.ccache
+          openwrt/dl
+          openwrt/staging_dir
+          openwrt/build_dir
+        key: ${{ runner.os }}-openwrt-${{ matrix.target }}-${{ hashFiles('devices/**') }}
+        restore-keys: |
+          ${{ runner.os }}-openwrt-${{ matrix.target }}-
+          ${{ runner.os }}-openwrt-
+
     - name: Check space usage
       run: |
         shopt -s extglob
         cd openwrt
-        if [[ -f staging_dir/*${{ env.MTARGET }}*/bin ]]; then
+        if [ -f "staging_dir/*${{ env.MTARGET }}*/bin" ]; then
             rm -rf staging_dir/!(*${{ env.MTARGET }}*|host|hostpkg) build_dir/!(*${{ env.MTARGET }}*|host|hostpkg)
         fi
         df -hT
 
     - name: SSH connection to Actions
-      uses: kiddin9/debugger-action@master
+      uses: mxschmitt/action-tmate@v3
       if: contains(github.event.action, 'ssh')
 
     - name: Compile the firmware
@@ -265,7 +278,13 @@ jobs:
         shopt -s extglob
         cd openwrt
         echo -e "$(($(nproc)+1)) thread compile"
-        make -j$(($(nproc)+1)) || make V=s &>build.log || (tail -50 build.log; curl -k --data chat_id="${{ env.TELEGRAM_CHAT_ID }}" --data "text=❌ OpenWrt ${{ env.VERSION }} ${{matrix.target}} 编译失败 😂" "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage";df -hT;exit 1)
+        make -j$(($(nproc)+1)) || make -j1 V=s
+        if [ $? -ne 0 ]; then
+          tail -50 build.log
+          curl -k --data chat_id="${{ env.TELEGRAM_CHAT_ID }}" --data "text=❌ OpenWrt ${{ env.VERSION }} ${{ matrix.target }} 编译失败 😂" "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage"
+          df -hT
+          exit 1
+        fi
         sed -i "s/# CONFIG_IB is not set/CONFIG_IB=y/" .config
         rm -rf staging_dir/toolchain-*/bin/*openwrt-linux-musl-lto-dump
         rm -rf staging_dir/toolchain-*/initial
@@ -277,32 +296,20 @@ jobs:
       run: |
         shopt -s extglob
         cd openwrt/bin/targets/*/*/
-        cp $GITHUB_WORKSPACE/openwrt/.config ${{matrix.target}}.config || true
-        cp $GITHUB_WORKSPACE/openwrt/build_dir/target-*/linux-*/linux-*/.config ${{matrix.target}}_kernel.config || true
+        cp "$GITHUB_WORKSPACE/openwrt/.config" "${{ matrix.target }}.config" 2>/dev/null || true
+        cp "$GITHUB_WORKSPACE/openwrt/build_dir/target-*/linux-*/linux-*/.config" "${{ matrix.target }}_kernel.config" 2>/dev/null || true
         rm -rf kwrt-!(*imagebuilder*)
         Emoji=("🎉" "🤞" "✨" "🎁" "🎈" "🎄" "🎨" "💋" "🍓" "🍕" "🍉" "💐" "🌴" "🚀" "🛸" "🗽" "⛅" "🌈" "🔥" "⛄" "🐶" "🏅" "🦄" "🐤")
-        echo "EMOJI=${Emoji[$[$RANDOM % ${#Emoji[@]}]]}" >> $GITHUB_ENV
-
-    - name: Deploy imagebuilder to server
-      uses: easingthemes/ssh-deploy@main
-      continue-on-error: true
-      if: env.SSH_PRIVATE_KEY && ! contains(github.event.action, 'noser')
-      with:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        ARGS: "-avzr"
-        SOURCE: openwrt/bin/targets
-        REMOTE_HOST: ${{ secrets.SERVER_HOST }}
-        REMOTE_PORT: ${{ secrets.SERVER_PORT }}
-        REMOTE_USER: root
-        TARGET: "/www/wwwroot/dl.openwrt.ai/releases/tmp/"
+        RANDOM_INDEX=$(( RANDOM % ${#Emoji[@]} ))
+        echo "EMOJI=${Emoji[$RANDOM_INDEX]}" >> $GITHUB_ENV
 
     - name: Upload firmware for artifact
-      uses: actions/upload-artifact@main
+      uses: actions/upload-artifact@v4
       if: env.UPLOAD_FIRMWARE_FOR_ARTIFACT == 'true'
       with:
-        name: ${{ env.VERSION }}_${{matrix.target}}
-        path: |
-          openwrt/bin/targets/
+        name: ${{ env.VERSION }}_${{ matrix.target }}
+        path: openwrt/bin/targets/
+        retention-days: 30
 
     - name: Create release
       id: create_release
@@ -310,45 +317,41 @@ jobs:
       continue-on-error: true
       run: |
         echo -e "墙内加速下载 🚀:\n" >> release.txt
-        echo -e "[腾讯云] (https://dl.openwrt.ai/firmware/${{matrix.target}}/ ☁)\n" >> release.txt
-        [ ${{ env.WETRANS }} ] && echo -e "[WeTransfer] (${{ env.WETRANS }} 🗽)\n" >> release.txt
-        [ ${{ env.COWURL }} ] && echo -e "[奶牛上传] (${{ env.COWURL }} 🐮)\n" >> release.txt
-        [ ${{ env.NOTICE }} ] && echo -e "${{ env.NOTICE }}" >> release.txt || true
+        echo -e "[腾讯云] (https://dl.openwrt.ai/firmware/${{ matrix.target }}/ ☁)\n" >> release.txt
+        if [ -n "${{ env.WETRANS }}" ]; then
+          echo -e "[WeTransfer] (${{ env.WETRANS }} 🗽)\n" >> release.txt
+        fi
+        if [ -n "${{ env.COWURL }}" ]; then
+          echo -e "[奶牛上传] (${{ env.COWURL }} 🐮)\n" >> release.txt
+        fi
+        if [ -n "${{ env.NOTICE }}" ]; then
+          echo -e "${{ env.NOTICE }}" >> release.txt
+        fi
 
     - name: Upload firmware for release
-      uses: softprops/action-gh-release@master
+      uses: softprops/action-gh-release@v2
       continue-on-error: true
       if: env.REPO_TOKEN && env.UPLOAD_FIRMWARE_FOR_RELEASE == 'true'
       env:
         GITHUB_TOKEN: ${{ secrets.TOKEN_KIDDIN9 }}
       with:
-        files: "${{ env.FIRMWARE }}/*"
-        name: ${{ env.date2 }} ${{matrix.target}} ${{ env.EMOJI }}
-        tag_name: ${{ env.date }}_${{matrix.target}}
+        files: ${{ env.FIRMWARE }}/*
+        name: ${{ env.date2 }} ${{ matrix.target }} ${{ env.EMOJI }}
+        tag_name: ${{ env.date }}_${{ matrix.target }}
         body_path: release.txt
-    
-    - name: WeChat notification
-      continue-on-error: true
-      if: env.SCKEY
-      run: |
-        # [ steps.compile.outputs.status == 'success' ] && curl https://sctapi.ftqq.com/${{ secrets.SCKEY }}.send?text=🎉OpenWrt_${{ env.VERSION }}_${{matrix.target}}编译完成😋|| curl https://sctapi.ftqq.com/${{ secrets.SCKEY }}.send?text=❌OpenWrt_${{ env.VERSION }}_${{matrix.target}}编译失败😂
 
     - name: Telegram notification
       if: env.TELEGRAM_TOKEN && ! contains(github.event.action, 'notg')
       continue-on-error: true
       run: |
-        curl -k --data chat_id="${{ env.TELEGRAM_CHAT_ID }}" --data "text=🎉 OpenWrt ${{ env.VERSION }} ${{matrix.target}} 编译成功 😋  https://dl.openwrt.ai/firmware/${{matrix.target}}/  ${{ env.COWURL }}   ${{ env.WETRANS }} 🚀" "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage"
-
-    - name: Delete workflow runs
-      uses: GitRML/delete-workflow-runs@main
-      continue-on-error: true
-      with:
-        token: ${{ secrets.TOKEN_KIDDIN9 }}
-        retain_days: 100
-        keep_minimum_runs: 0
+        if [ "${{ steps.compile.outcome }}" = "success" ]; then
+          curl -k --data chat_id="${{ env.TELEGRAM_CHAT_ID }}" --data "text=🎉 OpenWrt ${{ env.VERSION }} ${{ matrix.target }} 编译成功 😋  https://dl.openwrt.ai/firmware/${{ matrix.target }}/  ${{ env.COWURL }}   ${{ env.WETRANS }} 🚀" "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage"
+        else
+          curl -k --data chat_id="${{ env.TELEGRAM_CHAT_ID }}" --data "text=❌ OpenWrt ${{ env.VERSION }} ${{ matrix.target }} 编译失败 😂" "https://api.telegram.org/bot${{ env.TELEGRAM_TOKEN }}/sendMessage"
+        fi
 
     - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@master
+      uses: dev-drprasad/delete-older-releases@v0.5.0
       continue-on-error: true
       if: env.UPLOAD_FIRMWARE_FOR_RELEASE == 'true' && !cancelled()
       with:
